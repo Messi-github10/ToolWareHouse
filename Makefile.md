@@ -423,35 +423,56 @@ rebuild: clean $(OUT)
 ## 多个可执行程序的通用Makefile
 
 ```makefile
-# 获取当前目录下所有 .c 源文件
-SRCS := $(wildcard *.c)
+# 定义编译器为 g++
+CXX := g++
 
-# 使用 patsubst 模式替换，将所有的 .c 文件名去掉扩展名
-OUTS := $(patsubst %.c, %, $(SRCS))
+# 定义编译选项：
+# -Wall：启用所有警告
+# -g：生成调试信息
+# -lpthread：链接 pthread 线程库
+COM_OP := -Wall -g -lpthread
 
-# 定义编译器为 gcc
-CC := gcc
+# 定义最终生成的可执行文件名
+TARGET := my_program
 
-# 定义编译选项
-COM_OP := -Wall -g
+# 自动获取当前目录下所有 .cpp 文件列表
+SRCS := $(wildcard *.cpp)
 
-# 声明伪目标
-.PHONY: clean rebuild all
+# 将 .cpp 文件名列表转换为对应的 .o 文件名列表
+# 例如：main.cpp → main.o
+OBJS := $(SRCS:.cpp=.o)
 
-# 执行 make 或 make all 时会构建所有程序
-all: $(OUTS)
+# 将 .cpp 文件名列表转换为对应的 .d（依赖）文件名列表
+# 例如：main.cpp → main.d
+DEPENDS := $(SRCS:.cpp=.d)
 
-# 将 .c 源文件生成无扩展名的可执行文件
-# $@ = "hello"（目标名）
-# $^ = "hello.c"（依赖文件）
-% : %.c
-	$(CC) $^ -o $@ $(COM_OP)
+# 声明伪目标（不生成实际文件的目标）
+.PHONY: all clean rebuild
 
-# 删除所有生成的可执行文件
+# 默认构建目标：当用户直接运行 'make' 时执行
+all: $(TARGET)
+
+# 链接规则：将所有 .o 文件链接成最终的可执行文件
+# $^ 表示所有依赖文件（即 $(OBJS)）
+# $@ 表示目标文件名（即 $(TARGET)）
+$(TARGET): $(OBJS)
+	$(CXX) $^ -o $@ $(COM_OP)
+
+# 生成依赖文件的规则（用于自动追踪头文件依赖）
+# 对每个 .cpp 文件，用 g++ -MM 生成其依赖关系并保存到 .d 文件
+# $< 表示第一个依赖文件（即 %.cpp）
+%.d: %.cpp
+	$(CXX) -MM $< -o $@
+
+# 包含所有依赖文件（如果存在）
+# 前面的 - 表示忽略文件不存在的错误
+-include $(DEPENDS)
+
+# 清理规则：删除生成的可执行文件、.o 文件和 .d 文件
 clean:
-	$(RM) $(OUTS)
+	$(RM) $(TARGET) $(OBJS) $(DEPENDS)
 
-# rebuild
+# 重新构建：先执行 clean，再执行 all
 rebuild: clean all
 ```
 
